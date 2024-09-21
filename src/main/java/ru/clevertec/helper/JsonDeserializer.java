@@ -7,6 +7,7 @@ import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
 import java.math.BigDecimal;
+import java.time.DateTimeException;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
@@ -112,7 +113,7 @@ public class JsonDeserializer {
             return deserializeFromMap((Map<String, Object>) jsonObject, clazz);
         }
 
-        throw new IllegalArgumentException("Unsupported JSON value for object deserialization: " + jsonObject);
+        throw new JsonParseException("Unsupported JSON value for object deserialization: " + jsonObject);
     }
 
     private <T> T deserializeFromMap(Map<String, Object> jsonMap, Class<T> clazz) {
@@ -141,35 +142,39 @@ public class JsonDeserializer {
         if (value == null) {
             return null;
         }
+        try {
+            if (fieldType == String.class) {
+                return value.toString();
+            } else if (fieldType == int.class || fieldType == Integer.class) {
+                return Integer.parseInt(value.toString());
+            } else if (fieldType == double.class || fieldType == Double.class) {
+                return Double.parseDouble(value.toString());
+            } else if (fieldType == boolean.class || fieldType == Boolean.class) {
+                return Boolean.parseBoolean(value.toString());
+            } else if (fieldType == BigDecimal.class){
+                return new BigDecimal(value.toString());
+            } else if (fieldType == UUID.class) {
+                return UUID.fromString(value.toString());
+            } else if (fieldType == LocalDate.class) {
+                return LocalDate.parse(value.toString());
+            } else if (fieldType == OffsetDateTime.class) {
+                return OffsetDateTime.parse(value.toString());
+            } else if (fieldType == List.class) {
+                Type[] listType = ((ParameterizedType) genericType).getActualTypeArguments();
+                Class<?> listClass = (Class<?>) listType[0];
+                return deserializeList((List<?>) value, listClass);
+            } else if (fieldType == Map.class) {
+                Type[] mapTypes = ((ParameterizedType) genericType).getActualTypeArguments();
+                Class<?> keyType = (Class<?>) mapTypes[0];
+                Class<?> valueType = (Class<?>) mapTypes[1];
+                return deserializeMap((Map<?, ?>) value, keyType, valueType);
+            }
 
-        if (fieldType == String.class) {
-            return value.toString();
-        } else if (fieldType == int.class || fieldType == Integer.class) {
-            return Integer.parseInt(value.toString());
-        } else if (fieldType == double.class || fieldType == Double.class) {
-            return Double.parseDouble(value.toString());
-        } else if (fieldType == boolean.class || fieldType == Boolean.class) {
-            return Boolean.parseBoolean(value.toString());
-        } else if (fieldType == BigDecimal.class){
-            return new BigDecimal(value.toString());
-        } else if (fieldType == UUID.class) {
-            return UUID.fromString(value.toString());
-        } else if (fieldType == LocalDate.class) {
-            return LocalDate.parse(value.toString());
-        } else if (fieldType == OffsetDateTime.class) {
-            return OffsetDateTime.parse(value.toString());
-        } else if (fieldType == List.class) {
-            Type[] listType = ((ParameterizedType) genericType).getActualTypeArguments();
-            Class<?> listClass = (Class<?>) listType[0];
-            return deserializeList((List<?>) value, listClass);
-        } else if (fieldType == Map.class) {
-            Type[] mapTypes = ((ParameterizedType) genericType).getActualTypeArguments();
-            Class<?> keyType = (Class<?>) mapTypes[0];
-            Class<?> valueType = (Class<?>) mapTypes[1];
-            return deserializeMap((Map<?, ?>) value, keyType, valueType);
+            return deserializeObject(value, fieldType);
+        } catch (IllegalArgumentException | DateTimeException ex) {
+            throw new JsonParseException(ex.getMessage());
         }
 
-        return deserializeObject(value, fieldType);
     }
 
     private List<Object> deserializeList(List<?> jsonList, Class<?> listType) {

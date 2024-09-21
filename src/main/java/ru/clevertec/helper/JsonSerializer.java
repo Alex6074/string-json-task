@@ -8,6 +8,7 @@ import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -37,7 +38,8 @@ public class JsonSerializer {
             } else if (obj instanceof Map) {
                 return serializeMap((Map<?, ?>) obj);
             } else if (clazz == OffsetDateTime.class) {
-                return "\"" + obj + "\"";
+                DateTimeFormatter dateTimeFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss.SSSSSSSSSXXX");
+                return "\"" + ((OffsetDateTime) obj).format(dateTimeFormatter) + "\"";
             } else if (clazz == LocalDate.class) {
                 return "\"" + obj + "\"";
             }
